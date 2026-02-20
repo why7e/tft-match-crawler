@@ -212,6 +212,7 @@ class Database:
                 conn.execute(
                     """
                     INSERT INTO participants
+                        (match_id, puuid, placement, level, gold_left, last_round,
                          players_eliminated, time_eliminated, total_damage_to_players, augments)
                     VALUES
                         (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

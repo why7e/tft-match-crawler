@@ -48,7 +48,7 @@ class Collector:
                 continue
 
             league_entries = data.get("entries", [])
-            logger.info("  Found %d entries in %s.", len(league_entries), league.upper())
+            logger.info("Found %d entries in %s.", len(league_entries), league.upper())
 
             for entry in league_entries:
                 puuid = entry.get("puuid")
