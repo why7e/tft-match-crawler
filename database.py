@@ -8,8 +8,6 @@ matches             — one row per fetched match
 participants        — one row per player-in-match (8 per match)
 participant_traits  — traits active for a participant
 participant_units   — units fielded by a participant
-
-Re-runs are safe: all inserts use INSERT OR IGNORE / ON CONFLICT DO NOTHING.
 """
 
 import json
@@ -214,7 +212,6 @@ class Database:
                 conn.execute(
                     """
                     INSERT INTO participants
-                        (match_id, puuid, placement, level, gold_left, last_round,
                          players_eliminated, time_eliminated, total_damage_to_players, augments)
                     VALUES
                         (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

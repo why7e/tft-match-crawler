@@ -122,7 +122,7 @@ class Collector:
 
     def fetch_matches(self, match_ids: Set[str]):
         """Fetch full match data for each ID and store it in the database."""
-        match_list = sorted(match_ids)  # deterministic order for progress tracking
+        match_list = sorted(match_ids, reverse = True) # Descending order, pull newest first.
         total = len(match_list)
 
         if total == 0:
