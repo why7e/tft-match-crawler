@@ -34,78 +34,35 @@ PLATFORM_TO_REGION = {
 
 VALID_LEAGUES = {"challenger", "grandmaster", "master"}
 
-# The game_version field in match data is an internal build version, which
-# doesn't always line up with the publicly used version. This maps the internal
-# build number to the real patch version. Taken from the DevRel discord.
-VERSION_MAPPING = {
-    """2025"""
-    "15.1": "13.3",
-    "15.2": "13.4",
-    "15.3": "13.5",
-    "15.4": "13.6",
-    "15.5": "13.7",
-    "15.6": "13.8",
-    "15.7": "14.1",
-    "15.8": "14.2",
-    "15.9": "14.3",
-    "15.10": "14.4",
-    "15.11": "14.5",
-    "15.12": "14.6",
-    "15.13": "14.7",
-    "15.14": "14.8",
-    "15.15": "15.1",
-    "15.16": "15.2",
-    "15.17": "15.3",
-    "15.18": "15.4",
-    "15.19": "15.5",
-    "15.20": "15.6",
-    "15.21": "15.7",
-    "15.22": "15.8",
-    "15.23": "15.9",
-    "15.24": "16.1",
-    """2026"""
-    "16.1": "16.2",
-    "16.2": "16.3",
-    "16.3": "16.4",
-    "16.4": "16.5",
-    "16.5": "16.6",
-    "16.6": "16.7",
-    "16.7": "16.8",
-    "16.8": "17.1",
-    "16.9": "17.2",
-    "16.10": "17.3",
-    "16.11": "17.4",
-    "16.12": "17.5",
-    "16.13": "17.6",
-    "16.14": "17.7",
-    "16.15": "17.8",
-    "16.16": "18.1",
-    "16.17": "18.2",
-    "16.18": "18.3",
-    "16.19": "18.4",
-    "16.20": "18.5",
-    "16.21": "18.6",
-    "16.22": "18.7",
-    "16.23": "18.8",
-    "16.24": "19.1",
-}
-
 
 @dataclass
 class Config:
-    # --- Defaults ---
+    # --- API auth ---
     api_key: str = ""
+
+    # --- Routing ---
     platform: str = "na1"
+
+    # --- Collection settings ---
     leagues: List[str] = field(default_factory=lambda: ["challenger"])
     queue: str = "RANKED_TFT"
     matches_per_player: int = 50
+
+    # --- Time window (optional) ---
+    # Unix timestamps in seconds. When set, only matches within this window
+    # are returned by the match-IDs endpoint. Useful for patch-specific pulls.
     start_time: Optional[int] = None
     end_time: Optional[int] = None
+
+    # --- Storage ---
     db_path: str = "tft_data.db"
-    request_delay: float = 1.2
+
+    # --- Rate limiting ---
+    request_delay: float = 1.2  # seconds between requests
+
+    # --- Logging ---
     log_level: str = "INFO"
 
-    # --- Checks ---
     def __post_init__(self):
         if not self.api_key:
             raise ValueError(

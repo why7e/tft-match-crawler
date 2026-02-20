@@ -5,7 +5,7 @@ TFT data collection pipeline.
    configured league(s).
 2. Collect match IDs — fetches up to `matches_per_player` recent match IDs
    per player, optionally filtered by time window. 
-   - TODO: As of 20/02, matches/by-puuid/ endpoint does not respect startTime or endTime.
+   - As of 20/02, matches/by-puuid/ endpoint does not respect startTime or endTime.
      Ideally this should be the main method, and we can re-query to get all games
      played within the current period.
 3. Fetch match data — retrieves and stores full match data for every unique

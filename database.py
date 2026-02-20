@@ -5,9 +5,11 @@ Schema
 ------
 players             — one row per tracked player (keyed by puuid)
 matches             — one row per fetched match
-participants        — one row per player-in-match (8 per match, can be a tracked player)
+participants        — one row per player-in-match (8 per match)
 participant_traits  — traits active for a participant
 participant_units   — units fielded by a participant
+
+Re-runs are safe: all inserts use INSERT OR IGNORE / ON CONFLICT DO NOTHING.
 """
 
 import json
@@ -41,7 +43,7 @@ CREATE TABLE IF NOT EXISTS players (
 
 CREATE TABLE IF NOT EXISTS matches (
     match_id            TEXT PRIMARY KEY,
-    game_datetime       INTEGER,   -- Unix timestamp
+    game_datetime       INTEGER,   -- Unix ms
     game_length         REAL,      -- seconds
     game_version        TEXT,
     queue_id            INTEGER,
@@ -277,3 +279,57 @@ class Database:
                     )
 
         logger.debug("Stored match %s", match_id)
+
+    # ------------------------------------------------------------------
+    # Export
+    # ------------------------------------------------------------------
+
+    def export_matches(self, active_traits_only: bool = True) -> List[Dict]:
+        """Return all match data as a list of nested dicts for JSON export.
+
+        Args:
+            active_traits_only: If True (default), exclude inactive traits (style=0).
+        """
+        trait_filter = "WHERE style > 0" if active_traits_only else ""
+
+        with self._conn() as conn:
+            matches = [dict(r) for r in conn.execute(
+                "SELECT * FROM matches ORDER BY game_datetime"
+            ).fetchall()]
+            participants = [dict(r) for r in conn.execute(
+                "SELECT * FROM participants"
+            ).fetchall()]
+            traits = [dict(r) for r in conn.execute(
+                f"SELECT * FROM participant_traits {trait_filter}"
+            ).fetchall()]
+            units = [dict(r) for r in conn.execute(
+                "SELECT * FROM participant_units"
+            ).fetchall()]
+
+        traits_by_pid: Dict[int, list] = {}
+        for t in traits:
+            pid = t["participant_id"]
+            traits_by_pid.setdefault(pid, []).append(
+                {k: v for k, v in t.items() if k not in ("id", "participant_id")}
+            )
+
+        units_by_pid: Dict[int, list] = {}
+        for u in units:
+            pid = u["participant_id"]
+            entry = {k: v for k, v in u.items() if k not in ("id", "participant_id")}
+            entry["items"] = json.loads(entry.get("items") or "[]")
+            units_by_pid.setdefault(pid, []).append(entry)
+
+        participants_by_match: Dict[str, list] = {}
+        for p in participants:
+            pid = p["id"]
+            entry = {k: v for k, v in p.items() if k not in ("id", "match_id")}
+            entry["augments"] = json.loads(entry.get("augments") or "[]")
+            entry["traits"] = traits_by_pid.get(pid, [])
+            entry["units"] = units_by_pid.get(pid, [])
+            participants_by_match.setdefault(p["match_id"], []).append(entry)
+
+        for m in matches:
+            m["participants"] = participants_by_match.get(m["match_id"], [])
+
+        return matches
