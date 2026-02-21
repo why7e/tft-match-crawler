@@ -208,6 +208,7 @@ __marimo__/
 
 # Database files
 *.db
+*.db-*
 
 # Export files
 *_export.json
