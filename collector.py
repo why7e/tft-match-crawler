@@ -133,7 +133,6 @@ class Collector:
                     if match_data is None:
                         logger.warning("Match %s returned None (404?), skipping.", last_id)
                         continue
-                    print(match_data.get("info", {}).get("game_datetime", {}), " and ", self.config.start_time)
                     if match_data.get("info", {}).get("game_datetime", {}) < self.config.start_time:
                         logger.debug("Batch reaches startTime, final batch for PUUID %s", puuid)
                         break
