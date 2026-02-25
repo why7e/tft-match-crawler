@@ -77,29 +77,62 @@ class Collector:
     # Step 2: Collect match IDs
     # ------------------------------------------------------------------
 
+    _MATCH_ID_BATCH = 200  # Maximum IDs the API returns per request
+
     def collect_match_ids(self, entries: List[Dict]) -> Set[str]:
         """
-        For each player, fetch up to `matches_per_player` recent match IDs.
-        Returns the full set of unique new match IDs across all players.
+        For each player, fetch recent match IDs.
+        
+        When start_time is configured, we query the maximum number of IDs until
+        we reach a match before start_time or exhaust the player's history.
+        Without start_time, a single request of `matches_per_player` is made.
         """
         all_match_ids: Set[str] = set()
         known_match_ids = self.db.get_known_match_ids()
+        known_datetimes = self.db.get_match_datetimes() if self.config.start_time else {}
 
         logger.info(
-            "Collecting match IDs for %d players (%d matches each)...",
+            "Collecting match IDs for %d players...",
             len(entries),
-            self.config.matches_per_player,
         )
 
         for i, entry in enumerate(entries):
-            match_ids = self.client.get_match_ids_by_puuid(
-                entry["puuid"],
-                count=self.config.matches_per_player,
-                start_time=self.config.start_time,
-                end_time=self.config.end_time,
-            )
-            new_ids = set(match_ids) - known_match_ids
-            all_match_ids.update(new_ids)
+            puuid = entry["puuid"]
+
+            if not self.config.start_time:
+                # No time filter — single request, original behaviour.
+                match_ids = self.client.get_match_ids_by_puuid(
+                    puuid,
+                    count=self.config.matches_per_player,
+                    end_time=self.config.end_time,
+                )
+                all_match_ids.update(set(match_ids) - known_match_ids)
+            else:
+                # Paginate until we find a stored match older than start_time
+                # or exhaust the player's history.
+                offset = 0
+                while True:
+                    batch = self.client.get_match_ids_by_puuid(
+                        puuid,
+                        count=self._MATCH_ID_BATCH,
+                        start=offset,
+                        end_time=self.config.end_time,
+                    )
+                    if not batch:
+                        break
+
+                    all_match_ids.update(set(batch) - known_match_ids)
+
+                    # Check whether any match in this batch is already stored
+                    # with a timestamp before our cutoff.
+                    past_cutoff = any(
+                        known_datetimes.get(mid, self.config.start_time) < self.config.start_time
+                        for mid in batch
+                    )
+                    if past_cutoff or len(batch) < self._MATCH_ID_BATCH:
+                        break
+
+                    offset += self._MATCH_ID_BATCH
 
             if (i + 1) % 50 == 0 or (i + 1) == len(entries):
                 logger.info(

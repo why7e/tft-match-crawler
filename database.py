@@ -158,6 +158,12 @@ class Database:
             rows = conn.execute("SELECT match_id FROM matches").fetchall()
         return {r["match_id"] for r in rows}
 
+    def get_match_datetimes(self) -> Dict[str, int]:
+        """Return a dict of match_id → game_datetime (Unix ms) for all stored matches."""
+        with self._conn() as conn:
+            rows = conn.execute("SELECT match_id, game_datetime FROM matches").fetchall()
+        return {r["match_id"]: r["game_datetime"] for r in rows}
+
     def match_exists(self, match_id: str) -> bool:
         with self._conn() as conn:
             row = conn.execute(
