@@ -108,7 +108,7 @@ class Collector:
                 )
                 all_match_ids.update(set(match_ids) - known_match_ids)
             else:
-                # Paginate until we find a stored match older than start_time
+                # Paginate until we find a batch that reaches older than start_time
                 # or exhaust the player's history.
                 offset = 0
                 while True:
@@ -122,17 +122,25 @@ class Collector:
                         break
 
                     all_match_ids.update(set(batch) - known_match_ids)
+                    offset += self._MATCH_ID_BATCH
 
-                    # Check whether any match in this batch is already stored
-                    # with a timestamp before our cutoff.
-                    past_cutoff = any(
-                        known_datetimes.get(mid, self.config.start_time) < self.config.start_time
-                        for mid in batch
-                    )
-                    if past_cutoff or len(batch) < self._MATCH_ID_BATCH:
+                    # Check if last match in this batch is before startTime
+                    # If so, we do not add any more batches
+                    last_id = batch[-1]
+                    print("Final match ID in this batch: " + last_id)
+
+                    match_data = self.client.get_match(last_id)
+                    if match_data is None:
+                        logger.warning("Match %s returned None (404?), skipping.", last_id)
+                        continue
+                    if match_data.get("info", {}).get("game_datetime", {}) < self.config.start_time:
                         break
 
-                    offset += self._MATCH_ID_BATCH
+                    try:
+                        self.db.store_match(match_data, platform=self.config.platform)
+                    except Exception as exc:
+                        logger.error("Failed to store match %s: %s", last_id, exc)
+
 
             if (i + 1) % 50 == 0 or (i + 1) == len(entries):
                 logger.info(
